@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2023. [tomrut] https://github.com/tomrut
+ */
 package com.tomrut.streams.lookup;
 
 import java.util.List;
