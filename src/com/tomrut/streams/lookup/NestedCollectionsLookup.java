@@ -10,11 +10,18 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class NestedCollectionsLookup {
+
+    @FunctionalInterface
+    public interface FindByParentAndChildKeyFunction {
+        int  findByParentAndChildKey(String pKey, String cKey, List<ParentItem> parentItems);
+    }
+
     private static final Map<String, List<Long>> functionCallTimes = new HashMap<>();
 
     public static void main(String[] args) {
 
         int iterations = 10000;
+        boolean byFunction = true;
 
         List<ParentItem> parentItems = new ArrayList<>();
         int childCount = 10;
@@ -30,14 +37,10 @@ public class NestedCollectionsLookup {
         String searchPKey = "pKey" + (parentCount / 2);
         String searchCKey = "childKey" + (childCount / 2);
         for (int i = 0; i < 10; i++) {
-            runFindByParentAndChildKeyForLoops(parentItems, iterations, searchPKey, searchCKey);
-            runFindByParentAndChildKeyFlatMapFindAny(parentItems, iterations, searchPKey, searchCKey);
-            runFindByParentAndChildKeyFlatMapFindFirst(parentItems, iterations, searchPKey, searchCKey);
-            runFindByParentAndChildKeyFlatMapFindAnyParallel(parentItems, iterations, searchPKey, searchCKey);
-            runFindByParentAndChildKeyMapStreamFindFirst(parentItems, iterations, searchPKey, searchCKey);
-            runFindByParentAndChildKeyMapStreamFindAny(parentItems, iterations, searchPKey, searchCKey);
-            runFindByParentAndChildKeyMapStreamFindAnyParallel(parentItems, iterations, searchPKey, searchCKey);
-            runFindByParentAndChildKeyTwoStreams(parentItems, iterations, searchPKey, searchCKey);
+            if (byFunction)
+                runAllMethodsByFunction(iterations, parentItems, searchPKey, searchCKey);
+            else
+                runAllReal(iterations, parentItems, searchPKey, searchCKey);
         }
 
         for (String functionName : functionCallTimes.keySet()) {
@@ -45,7 +48,7 @@ public class NestedCollectionsLookup {
             Double average = runTimes.stream().collect(Collectors.averagingLong(Long::longValue));
             Long max = runTimes.stream().max(Long::compare).orElse(null);
             Long min = runTimes.stream().min(Long::compare).orElse(null);
-            System.out.printf("%-50s min: %7d max: %7d, avg: %10.2f \n", functionName, min, max, average);
+            System.out.printf("%-50s min: %7d max: %7d, avg: %10.2f [microseconds]\n", functionName, min, max, average);
         }
 
         int byParentAndChildKeyFlatMapFindAny = findByParentAndChildKeyFlatMapFindAny(searchPKey, searchCKey, parentItems);
@@ -72,6 +75,46 @@ public class NestedCollectionsLookup {
         int byParentAndChildKeyMapStreamFindAnyParallel = findByParentAndChildKeyMapStreamFindAnyParallel(searchPKey, searchCKey, parentItems);
         System.out.println("byParentAndChildKeyMapStreamFindAnyParallel = " + byParentAndChildKeyMapStreamFindAnyParallel);
 
+    }
+
+    private static void runAllReal(int iterations, List<ParentItem> parentItems, String searchPKey, String searchCKey) {
+        runFindByParentAndChildKeyForLoops(parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChildKeyFlatMapFindAny(parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChildKeyFlatMapFindFirst(parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChildKeyFlatMapFindAnyParallel(parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChildKeyMapStreamFindFirst(parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChildKeyMapStreamFindAny(parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChildKeyMapStreamFindAnyParallel(parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChildKeyTwoStreams(parentItems, iterations, searchPKey, searchCKey);
+    }
+
+
+
+    private static void runAllMethodsByFunction(int iterations, List<ParentItem> parentItems, String searchPKey, String searchCKey) {
+        runFindByParentAndChild(NestedCollectionsLookup::findByParentAndChildKeyForLoops, "findByParentAndChildKeyForLoops",
+                parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChild(NestedCollectionsLookup::findByParentAndChildKeyFlatMapFindAny, "findByParentAndChildKeyFlatMapFindAny",
+                parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChild(NestedCollectionsLookup::findByParentAndChildKeyFlatMapFindFirst, "findByParentAndChildKeyFlatMapFindFirst",
+                parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChild(NestedCollectionsLookup::findByParentAndChildKeyFlatMapFindAnyParallel, "findByParentAndChildKeyFlatMapFindAnyParallel",
+                parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChild(NestedCollectionsLookup::findByParentAndChildKeyMapStreamFindFirst, "findByParentAndChildKeyMapStreamFindFirst",
+                parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChild(NestedCollectionsLookup::findByParentAndChildKeyMapStreamFindAny, "findByParentAndChildKeyMapStreamFindAny",
+                parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChild(NestedCollectionsLookup::findByParentAndChildKeyMapStreamFindAnyParallel, "findByParentAndChildKeyMapStreamFindAnyParallel",
+                parentItems, iterations, searchPKey, searchCKey);
+        runFindByParentAndChild(NestedCollectionsLookup::findByParentAndChildKeyTwoStreams,  "findByParentAndChildKeyTwoStreams",
+                parentItems,iterations, searchPKey, searchCKey);
+    }
+
+    private static void runFindByParentAndChild(FindByParentAndChildKeyFunction function, String methodName, List<ParentItem> parentItems, int iterations, String searchPKey, String searchCKey) {
+        long start = System.nanoTime();
+        for (int i = 0; i < iterations; i++) {
+            function.findByParentAndChildKey(searchPKey, searchCKey, parentItems);
+        }
+        registerDiff(start, methodName);
     }
 
     private static void runFindByParentAndChildKeyForLoops(List<ParentItem> parentItems, int iterations, String searchPKey, String searchCKey) {
